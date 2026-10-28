@@ -124,27 +124,46 @@
     bbox=direct(el,'LatLonBoundingBox');if(bbox){const vals=['minx','miny','maxx','maxy'].map(n=>parseFloat(bbox.getAttribute(n)));if(vals.every(Number.isFinite))return vals;}
     return null;
   }
-  function parseLayers(xmlString){const xml=new DOMParser().parseFromString(xmlString,'text/xml');if(xml.querySelector('parsererror')||xml.querySelector('ServiceException'))throw new Error('GeoServer mengembalikan respons XML error');
+  function parseLayers(xmlString){const xml=new DOMParser().parseFromString(xmlString,'text/xml');
+    if(xml.querySelector('parsererror'))throw new Error('Respons GetCapabilities bukan XML valid.');
+    const root=xml.documentElement?.localName||'';
+    if(root==='ServiceExceptionReport'||root==='ExceptionReport'){
+      const msg=[...xml.getElementsByTagName('*')].find(n=>['ServiceException','ExceptionText'].includes(n.localName))?.textContent?.trim();
+      throw new Error('GeoServer menolak GetCapabilities: '+(msg||root));
+    }
+    if(!['WMS_Capabilities','WMT_MS_Capabilities'].includes(root)){
+      throw new Error('Respons bukan dokumen WMS_Capabilities ('+root+').');
+    }
     // GetCapabilities WMS virtual workspace milik pengguna, bukan global GeoServer.
     // Jika allowedLayers kosong, tampilkan semua layer dalam workspace ini saja.
     // Jika diisi, hanya nama diizinkan yang akan ditampilkan.
     const allowList = Array.isArray(cfg.allowedLayers) ? cfg.allowedLayers : [];
     const allowed = new Set(allowList.map(name => String(name).trim().toLowerCase()));
-    const all=[...xml.getElementsByTagName('*')].filter(n=>n.localName==='Layer'),map=new Map();for(const l of all){const rawName=inner(l,'Name');if(!rawName)continue;const name=rawName.includes(':')?rawName:(state.workspace+':'+rawName);if(!name.startsWith(state.workspace+':'))continue;
-      if(allowed.size && !allowed.has(name.toLowerCase()))continue;
+    // Layanan WMS LizPack ini khusus workspace pengguna; nama layer dari
+    // GetCapabilities adalah otoritatif dan harus digunakan apa adanya pada GetMap.
+    // Jangan paksa prefix workspace, sebab WMS virtual workspace dapat mengembalikan
+    // nama yang sudah qualified ATAU nama polos.
+    const all=[...xml.getElementsByTagName('*')].filter(n=>n.localName==='Layer'),map=new Map();for(const l of all){const rawName=inner(l,'Name');if(!rawName)continue;const name=rawName.trim();
+      if(allowed.size && !allowed.has(name.toLowerCase()) && !allowed.has((state.workspace+':'+name).toLowerCase()))continue;
       map.set(name,{name,title:inner(l,'Title')||name.split(':').pop().replace(/_/g,' '),description:inner(l,'Abstract')||'Layer spasial disediakan melalui layanan GeoServer.',bounds:parseBounds(l)});}
     return [...map.values()].sort((a,b)=>{if(a.name===cfg.defaultLayer)return -1;if(b.name===cfg.defaultLayer)return 1;return a.title.localeCompare(b.title,'id');});
   }
   async function loadLayers({fit=true}={}){const fetchSeq=++state.fetchSeq;status('Memeriksa GeoServer','pending');$('layerList').innerHTML='<div class="layer-loading">Menghubungkan katalog GeoServer...</div>';
     const previous=new Set(state.enabled);
-    try{const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),13000);let r;try{r=await fetch(getCapabilitiesUrl(),{cache:'no-store',signal:controller.signal});}finally{clearTimeout(timer)}if(!r.ok)throw new Error('HTTP '+r.status);const xml=await r.text();const layers=parseLayers(xml);if(fetchSeq!==state.fetchSeq)return;if(!layers.length)throw new Error('Belum ditemukan layer di WMS workspace LizPack. Periksa publikasi dan nama workspace.');
+    try{const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),22000);let r;try{r=await fetch(getCapabilitiesUrl(),{cache:'no-store',signal:controller.signal});}finally{clearTimeout(timer)}
+      if(!r.ok){
+        const body=(await r.text()).slice(0,900);
+        let detail='';try{detail=JSON.parse(body).error||'';}catch{detail=body.replace(/<[^>]+>/g,' ').replace(/\s+/g,' ').slice(0,140);}
+        throw new Error('HTTP '+r.status+(detail?' — '+detail:''));
+      }
+      const xml=await r.text();const layers=parseLayers(xml);if(fetchSeq!==state.fetchSeq)return;if(!layers.length)throw new Error('GetCapabilities valid, tetapi tidak memuat layer bernama. Periksa status Published/Advertised di LizPack.');
       state.layers=layers;state.enabled=new Set([...previous].filter(x=>layers.some(l=>l.name===x)));
       if(!state.enabled.size){const preferred=layers.find(l=>l.name===cfg.defaultLayer)||layers[0];state.enabled.add(preferred.name);}
       state.dataBounds=layers.find(l=>l.name===cfg.defaultLayer)?.bounds||layers.find(l=>state.enabled.has(l.name))?.bounds||null;
       status('GeoServer terhubung','online');state.wmsOnline=true;renderLayers();refreshLegend();updateActiveCounter();
 
       if(fit){if(!fitBounds(state.dataBounds))renderMap();}else renderMap();
-    }catch(err){if(fetchSeq!==state.fetchSeq)return;console.warn('GetCapabilities:',err);state.layers=state.workspace==='webgis'?[fallbackLayer]:[];state.enabled=new Set(state.layers.filter(l=>previous.has(l.name)||l.name===cfg.defaultLayer).map(l=>l.name));state.dataBounds=null;state.wmsOnline=false;status('Metadata tidak tersedia','offline');renderLayers();refreshLegend();updateActiveCounter();renderMap();notice('Metadata WMS gagal. Uji endpoint GetCapabilities pada workspace LizPack di alamat website ini.',8500);}
+    }catch(err){if(fetchSeq!==state.fetchSeq)return;console.warn('GetCapabilities:',err);state.layers=state.workspace==='webgis'?[fallbackLayer]:[];state.enabled=new Set(state.layers.filter(l=>previous.has(l.name)||l.name===cfg.defaultLayer).map(l=>l.name));state.dataBounds=null;state.wmsOnline=false;status('Metadata tidak tersedia','offline');renderLayers();refreshLegend();updateActiveCounter();renderMap();notice('Metadata WMS gagal: '+(err?.name==='AbortError'?'Timeout saat mengambil GetCapabilities':err?.message||'kesalahan tidak diketahui')+'. Periksa URL WMS dan proxy Vercel.',15000);}
   }
   function renderLayers(){const list=$('layerList'),filter=$('layerSearch').value.trim().toLowerCase();clear(list);const matching=state.layers.filter(l=>(l.title+' '+l.name).toLowerCase().includes(filter));$('layerCount').textContent=state.layers.length+' layer';document.querySelector('.sidebar-search').hidden=state.layers.length<5;
     if(!matching.length){list.appendChild(node('div','layer-empty',state.layers.length?'Tidak ada layer yang cocok.':'Belum ada layer. Periksa koneksi dan workspace.'));return;}
