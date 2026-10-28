@@ -11,6 +11,8 @@ window.GEOPORTAL_CONFIG = {
   workspace: 'webgis',
   wmsUrl: '/geoserver/webgis/wms',
   defaultLayer: 'webgis:jenis_tanah_magelang',
+  // Hanya layer penelitian yang ditampilkan (bukan data contoh bawaan GeoServer).
+  allowedLayers: ['webgis:jenis_tanah_magelang'],
   initialCenter: [110.22, -7.50],
   initialZoom: 10,
   minZoom: 4,
