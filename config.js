@@ -1,23 +1,26 @@
-/*
- * GeoPortal Magelang — LizPack GeoServer Cloud (tanpa laptop lokal).
- * Proxy Vercel tetap menggunakan /geoserver/:workspace/wms.
- * Vercel -> GEOSERVER_PUBLIC_BASE=https://gs.lizpack.com
- * Workspace cloud: ws_fazliaditya17
- *
- * allowedLayers kosong = hanya tampilkan layer yang dikembalikan oleh
- * virtual workspace WMS LizPack (bukan seluruh katalog GeoServer global).
- * Nama layer diambil otomatis dari GetCapabilities, tidak perlu menebak.
+/* SIP-coba — LizPack WMS langsung di browser (mode uji alternatif)
+ * Menyiasati HTTP 403 yang dialami fungsi Vercel saat mengambil WMS LizPack.
+ * GetCapabilities memakai katalog statis hasil XML resmi 2026-10-29.
+ * WMS GetMap tetap dipanggil dari browser melalui HTTPS LizPack.
+ * Jika Cloudflare menolak request gambar, perlu bantuan LizPack (allow WMS).
  */
 window.GEOPORTAL_CONFIG = {
   title: 'GeoPortal Magelang',
   workspace: 'ws_fazliaditya17',
-  wmsUrl: '/geoserver/ws_fazliaditya17/wms',
-  defaultLayer: '', // Ambil layer pertama dari GetCapabilities.
-  allowedLayers: [], // Otomatis layer dalam workspace pengguna saja.
-  configVersion: 'lizpack-2026-10-v2', // Reset sekali setting URL lama dari laptop.
+  wmsUrl: 'https://gs.lizpack.com/geoserver/ws_fazliaditya17/wms',
+  defaultLayer: 'jenis_tanah_magelang',
+  allowedLayers: ['jenis_tanah_magelang'],
+  directWmsMode: true,
+  staticLayers: [{
+    name: 'jenis_tanah_magelang',
+    title: 'Peta Jenis Tanah Kabupaten Magelang',
+    description: 'Layer publik dari LizPack GeoServer Cloud. Style saat ini: polygon (abu-abu standar).',
+    bounds: [110.04305893200298, -7.706740638786212, 110.44549842714399, -7.322460340523301]
+  }],
+  configVersion: 'lizpack-wms-direct-2026-10-v3',
   initialCenter: [110.22, -7.50],
   initialZoom: 10,
   minZoom: 4,
   maxZoom: 18,
-  enableWfsExport: true
+  enableWfsExport: false
 };
