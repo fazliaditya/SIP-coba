@@ -95,7 +95,7 @@
         const src=reqUrl(getWmsMapParams(act,w,h,true));
         const overlay=makeTile(src,0,0,wmsTiles,seq,'wms');
         overlay.style.width=Math.round(w)+'px';overlay.style.height=Math.round(h)+'px';
-        overlay.addEventListener('error',()=>{if(seq===state.renderSeq){status('Layer WMS gagal dimuat','offline');notice('Peta WMS gagal: periksa jalur /geoserver/ di Vercel dan URL GeoServer publik. Jika GetCapabilities berhasil, periksa GetMap & style.',8000);}}, {once:true});
+        overlay.addEventListener('error',()=>{if(seq===state.renderSeq){status('Layer WMS gagal dimuat','offline');notice(cfg.directWmsMode?'GetMap LizPack ditolak/gagal dimuat dari browser. Periksa izin akses WMS publik dan proteksi Cloudflare di LizPack.':'Peta WMS gagal: periksa jalur /geoserver/ di Vercel dan URL GeoServer publik. Jika GetCapabilities berhasil, periksa GetMap & style.',10000);}}, {once:true});
         wmsFrag.appendChild(overlay);
       }catch(e){console.warn(e);}
     }
@@ -150,6 +150,18 @@
   }
   async function loadLayers({fit=true}={}){const fetchSeq=++state.fetchSeq;status('Memeriksa GeoServer','pending');$('layerList').innerHTML='<div class="layer-loading">Menghubungkan katalog GeoServer...</div>';
     const previous=new Set(state.enabled);
+    // Catalog from verified WMS Capabilities, avoids blocked Vercel proxy and cross-origin XML fetch.
+    // Image WMS requests still go straight to LizPack and may be blocked by its edge security.
+    if(cfg.directWmsMode===true && Array.isArray(cfg.staticLayers) && cfg.staticLayers.length){
+      state.layers=cfg.staticLayers.map(l=>({name:l.name,title:l.title,description:l.description,bounds:l.bounds}));
+      state.enabled=new Set([...previous].filter(n=>state.layers.some(l=>l.name===n)));
+      if(!state.enabled.size)state.enabled.add(cfg.defaultLayer||state.layers[0].name);
+      state.dataBounds=state.layers[0].bounds||null;
+      state.wmsOnline=false;
+      status('Menguji GetMap LizPack','pending');renderLayers();refreshLegend();updateActiveCounter();
+      if(fit){if(!fitBounds(state.dataBounds))renderMap();}else renderMap();
+      return;
+    }
     try{const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),22000);let r;try{r=await fetch(getCapabilitiesUrl(),{cache:'no-store',signal:controller.signal});}finally{clearTimeout(timer)}
       if(!r.ok){
         const body=(await r.text()).slice(0,900);
@@ -187,7 +199,9 @@
     for(const [key,val] of Object.entries(data)){const tr=document.createElement('tr');tr.append(node('td','',key),node('td','',val));table.appendChild(tr);}target.appendChild(table);
     const btn=node('button','secondary-btn','Zoom ke cakupan layer');btn.style.marginTop='18px';btn.addEventListener('click',()=>zoomToLayer(layer));target.appendChild(btn);
   }
-  async function getFeatureInfoAt(px,py){const act=[...state.enabled];if(!act.length){toast('Aktifkan sedikitnya satu layer WMS terlebih dahulu.');return;}
+  async function getFeatureInfoAt(px,py){
+    if(cfg.directWmsMode){toast('Popup atribut memerlukan izin CORS atau proxy dari penyedia LizPack. Mode ini mengutamakan tampilan WMS.');return;}
+    const act=[...state.enabled];if(!act.length){toast('Aktifkan sedikitnya satu layer WMS terlebih dahulu.');return;}
     const coord=screenToCoord(px,py);state.currentCoordinate=coord;applyPosition();const panel=$('detailContent');clear(panel);panel.appendChild(node('p','subtle-note','Mengambil informasi atribut dari GeoServer...'));openDrawer('detail');
     const [width,height]=getMapSize(),bbox=viewBbox();let url;
     try{url=reqUrl({SERVICE:'WMS',VERSION:'1.1.1',REQUEST:'GetFeatureInfo',LAYERS:act.join(','),QUERY_LAYERS:act.join(','),STYLES:'',FORMAT:'image/png',TRANSPARENT:'TRUE',SRS:'EPSG:3857',BBOX:bbox.join(','),WIDTH:Math.round(width),HEIGHT:Math.round(height),X:Math.floor(px),Y:Math.floor(py),INFO_FORMAT:'application/json',FEATURE_COUNT:8});}
@@ -240,6 +254,13 @@
   async function downloadBlob(url,filename){const ctrl=new AbortController(),timer=setTimeout(()=>ctrl.abort(),45000);try{const r=await fetch(url,{signal:ctrl.signal});if(!r.ok)throw new Error('HTTP '+r.status);const blob=await r.blob();if(blob.type.includes('xml')||blob.type.includes('html'))throw new Error('Respons server bukan file yang diminta.');const obj=URL.createObjectURL(blob),a=document.createElement('a');a.href=obj;a.download=filename;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(obj),30000);}finally{clearTimeout(timer);}}
   async function downloadPng(){
     const act=[...state.enabled];if(!act.length)return toast('Aktifkan satu layer terlebih dahulu.');
+    if(cfg.directWmsMode){
+      const [w,h]=getMapSize();
+      const url=reqUrl(getWmsMapParams(act,Math.max(256,Math.round(w)),Math.max(256,Math.round(h)),false));
+      window.open(url,'_blank','noopener,noreferrer');
+      toast('Gambar WMS dibuka di tab baru; simpan secara manual bila berhasil tampil.');
+      return;
+    }
     const [w,h]=getMapSize(),ratio=Math.min(2,1800/Math.max(w,1),1600/Math.max(h,1)),width=Math.max(256,Math.round(w*ratio)),height=Math.max(256,Math.round(h*ratio));
     $('downloadPng').disabled=true;
     try{await downloadBlob(reqUrl(getWmsMapParams(act,width,height,false)),'GeoPortal_Magelang_WMS.png');toast('Peta WMS diunduh dalam PNG tanpa basemap.');}
