@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#142d40">
+  <meta name="description" content="GeoPortal Magelang: portal peta interaktif berbasis layanan OGC WMS GeoServer.">
+  <meta name="color-scheme" content="light">
+  <title>GeoPortal Magelang — Portal Data Spasial</title>
+  <link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="assets/styles.css?v=4">
+  <script src="config.js?v=4"></script>
+  <script src="assets/app.js?v=4" defer></script>
+</head>
+<body>
+  <svg class="icon-defs" aria-hidden="true" xmlns="http://www.w3.org/2000/svg"><symbol id="i-grid" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1.2"/><rect x="14" y="3" width="7" height="7" rx="1.2"/><rect x="3" y="14" width="7" height="7" rx="1.2"/><rect x="14" y="14" width="7" height="7" rx="1.2"/></symbol><symbol id="i-layers" viewBox="0 0 24 24"><path d="m12 2 9 5-9 5-9-5 9-5Z"/><path d="m3 12 9 5 9-5M3 17l9 5 9-5"/></symbol><symbol id="i-arrow" viewBox="0 0 24 24"><path d="M5 12h14m-6-6 6 6-6 6"/></symbol><symbol id="i-back" viewBox="0 0 24 24"><path d="M19 12H5m6-6-6 6 6 6"/></symbol><symbol id="i-menu" viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h16"/></symbol><symbol id="i-x" viewBox="0 0 24 24"><path d="M5 5l14 14M19 5 5 19"/></symbol><symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m16 16 5 5"/></symbol><symbol id="i-pin" viewBox="0 0 24 24"><path d="M20 10c0 6-8 12-8 12S4 16 4 10a8 8 0 1 1 16 0Z"/><circle cx="12" cy="10" r="2.5"/></symbol><symbol id="i-download" viewBox="0 0 24 24"><path d="M12 3v12m-5-5 5 5 5-5M4 17v4h16v-4"/></symbol><symbol id="i-link" viewBox="0 0 24 24"><path d="M10 13a5 5 0 0 0 7 .3l3-3a5 5 0 0 0-7-7l-2 2M14 11a5 5 0 0 0-7-.3l-3 3a5 5 0 0 0 7 7l2-2"/></symbol><symbol id="i-external" viewBox="0 0 24 24"><path d="M14 3h7v7M21 3l-10 10M21 14v7H3V3h7"/></symbol><symbol id="i-info" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 11v6M12 7h.01"/></symbol><symbol id="i-settings" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="m19.4 15 .2 2-2.5 2.5-2-.2-.9 1.8h-3.5l-.9-1.8-2 .2-2.5-2.5.2-2-1.8-.9v-3.5l1.8-.9-.2-2L7.8 5l2 .2.9-1.8h3.5l.9 1.8 2-.2L19.6 7l-.2 2 1.8.9v3.5Z"/></symbol><symbol id="i-home" viewBox="0 0 24 24"><path d="m3 11 9-8 9 8v10h-7v-6h-4v6H3Z"/></symbol><symbol id="i-map" viewBox="0 0 24 24"><path d="m3 5 6-2 6 2 6-2v16l-6 2-6-2-6 2ZM9 3v16M15 5v16"/></symbol><symbol id="i-check" viewBox="0 0 24 24"><path d="m5 12 5 5 9-10"/></symbol><symbol id="i-refresh" viewBox="0 0 24 24"><path d="M20 11a8 8 0 1 0-2 6M20 4v7h-7"/></symbol><symbol id="i-target" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="4"/><path d="M12 1v5m0 12v5M1 12h5m12 0h5"/></symbol><symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 4v16M4 12h16"/></symbol><symbol id="i-minus" viewBox="0 0 24 24"><path d="M4 12h16"/></symbol><symbol id="i-sliders" viewBox="0 0 24 24"><path d="M4 7h16M4 17h16"/><circle cx="9" cy="7" r="2.5"/><circle cx="16" cy="17" r="2.5"/></symbol><symbol id="i-chevron" viewBox="0 0 24 24"><path d="m7 10 5 5 5-5"/></symbol><symbol id="i-shield" viewBox="0 0 24 24"><path d="m12 2 9 4v5c0 6-4 9-9 11-5-2-9-5-9-11V6Z"/><path d="m8 12 3 3 5-6"/></symbol><symbol id="i-globe" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c6 6 6 12 0 18M12 3c-6 6-6 12 0 18"/></symbol><symbol id="i-image" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8" cy="8" r="2"/><path d="m3 18 6-6 4 4 3-3 5 5"/></symbol></svg>
+
+  <div id="landing" class="landing-screen">
+    <header class="site-header">
+      <a class="brand" href="#beranda" id="homeBrand" aria-label="GeoPortal Magelang — Beranda">
+        <span class="brand-mark"><svg class="ico"><use href="#i-layers"/></svg></span>
+        <span class="brand-words"><strong>GeoPortal <em>Magelang</em></strong><small>PORTAL DATA SPASIAL</small></span>
+      </a>
+      <nav class="landing-nav" aria-label="Navigasi utama">
+        <a class="nav-active" href="#beranda">Beranda</a>
+        <a href="#tentang">Tentang Portal</a>
+        <button class="header-entry" id="navEnter" type="button">Buka WebGIS <svg class="ico"><use href="#i-arrow"/></svg></button>
+      </nav>
+    </header>
+
+    <main>
+      <section id="beranda" class="hero-wrap">
+        <div class="hero-copy">
+          <div class="eyebrow"><span class="eyebrow-line"></span> SISTEM INFORMASI GEOSPASIAL</div>
+          <h1>Memahami ruang,<br><span>melalui data.</span></h1>
+          <p class="hero-intro">Portal peta interaktif untuk menelusuri, menampilkan, dan mengakses informasi spasial Kabupaten Magelang melalui layanan GeoServer.</p>
+          <div class="hero-actions">
+            <button class="primary-btn large" id="heroEnter" type="button">Jelajahi Peta <svg class="ico"><use href="#i-arrow"/></svg></button>
+            <a class="text-btn" href="#tentang">Mengenal portal <svg class="ico"><use href="#i-arrow"/></svg></a>
+          </div>
+          <div class="hero-caption"><span class="mini-dot"></span> Menggunakan standar layanan peta OGC WMS</div>
+        </div>
+        <div class="hero-brief" aria-label="Ringkasan peta tematik">
+          <div class="brief-top"><span>PORTAL DATA SPASIAL</span><span class="brief-tag">KABUPATEN MAGELANG</span></div>
+          <div class="brief-body">
+            <span class="brief-label">PETA TEMATIK / 01</span>
+            <h2>Jenis Tanah<br><em>Kabupaten Magelang</em></h2>
+            <p>Informasi sebaran jenis tanah disajikan melalui layanan peta digital dengan simbolisasi yang dikelola langsung di GeoServer.</p>
+          </div>
+          <div class="brief-rows">
+            <div><span>SUMBER DATA</span><strong>GeoServer</strong></div>
+            <div><span>LAYANAN PETA</span><strong>OGC WMS</strong></div>
+            <div><span>JENIS INFORMASI</span><strong>Tematik jenis tanah</strong></div>
+          </div>
+          <div class="brief-footer"><span class="mini-dot"></span> Peta dan legenda mengikuti konfigurasi GeoServer</div>
+        </div>
+      </section>
+      <section class="feature-strip" id="tentang">
+        <div class="feature-title"><span class="section-kicker">TENTANG PORTAL</span><h2>Satu pintu untuk menjelajahi data spasial.</h2></div>
+        <div class="feature-list">
+          <article><span class="feature-number">01</span><h3>Terhubung ke GeoServer</h3><p>Lapisan peta ditampilkan langsung melalui layanan WMS, tanpa menyimpan salinan dataset di website.</p></article>
+          <article><span class="feature-number">02</span><h3>Informasi & legenda</h3><p>Tinjau legenda sesuai simbolisasi GeoServer dan periksa atribut spasial pada lokasi yang dipilih.</p></article>
+          <article><span class="feature-number">03</span><h3>Berbagi dan mengunduh</h3><p>Salin alamat layanan WMS atau unduh citra peta untuk kebutuhan dokumentasi dan analisis.</p></article>
+        </div>
+      </section>
+    </main>
+    <footer class="landing-footer"><span>GeoPortal Magelang · Prototipe WebGIS independen</span><span>Data peta berasal dari layanan GeoServer yang dikonfigurasi</span></footer>
+  </div>
+
+  <div id="dashboard" class="dashboard-screen" hidden>
+    <header class="app-header">
+      <div class="app-header-left">
+        <button id="backHome" class="icon-btn back-btn" type="button" title="Kembali ke beranda" aria-label="Kembali ke beranda"><svg class="ico"><use href="#i-back"/></svg></button>
+        <span class="brand-mark mini"><svg class="ico"><use href="#i-layers"/></svg></span>
+        <div class="app-headline"><strong>GeoPortal Magelang</strong><span>Peta Interaktif · Kabupaten Magelang</span></div>
+      </div>
+      <div class="app-header-right">
+        <div class="connection-state" id="serverStatus" title="Status layanan GeoServer"><span class="state-dot pending"></span><span id="serverStatusText">Memeriksa GeoServer</span></div>
+        <button id="openSettings" class="icon-btn settings-button" type="button" title="Pengaturan layanan" aria-label="Pengaturan layanan"><svg class="ico"><use href="#i-settings"/></svg></button>
+        <button id="openSidebar" class="icon-btn mobile-only" type="button" title="Katalog layer" aria-label="Buka katalog layer"><svg class="ico"><use href="#i-layers"/></svg></button>
+      </div>
+    </header>
+    <div class="workspace-layout">
+      <aside id="sidebar" class="layer-sidebar" aria-label="Katalog layer">
+        <div class="sidebar-main-head"><div><span class="section-kicker">PENGELOLAAN PETA</span><h2>Katalog Layer</h2></div><button id="closeSidebar" class="icon-btn mobile-only" type="button" aria-label="Tutup katalog"><svg class="ico"><use href="#i-x"/></svg></button></div>
+        <div class="sidebar-search"><svg class="ico"><use href="#i-search"/></svg><input id="layerSearch" type="search" placeholder="Cari nama layer..." aria-label="Cari layer" autocomplete="off"/></div>
+        <div class="sidebar-split-header"><span>DATA SPASIAL</span><span class="layer-count" id="layerCount">1 layer</span></div>
+        <div class="layer-list" id="layerList"><div class="layer-loading">Memuat daftar layer...</div></div>
+        <section class="sidebar-legend-section" aria-label="Legenda peta">
+          <div class="sidebar-split-header"><span>LEGENDA PETA</span><button class="small-link" id="refreshLegend" type="button">Perbarui</button></div>
+          <div id="legendList" class="legend-list"><p class="subtle-note">Legenda tersedia setelah layer dimuat.</p></div>
+        </section>
+        <div class="source-strip"><svg class="ico"><use href="#i-check"/></svg><span>Simbol &amp; warna dari GeoServer</span></div>
+      </aside>
+      <main class="map-panel" aria-label="Peta interaktif">
+        <div id="mapViewport" class="map-viewport" tabindex="0" role="application" aria-label="Peta WebGIS. Gunakan roda mouse untuk zoom dan drag untuk menggeser.">
+          <div id="basemapTiles" class="tile-layer base-tiles"></div>
+          <div id="wmsTiles" class="tile-layer wms-tiles"></div>
+          <div class="map-grid-overlay" aria-hidden="true"></div>
+          <div id="mapPin" class="map-pin" hidden><svg class="ico"><use href="#i-pin"/></svg></div>
+          <div class="map-top-left"><span class="map-caption">PETA TEMATIK</span><strong>Kabupaten Magelang</strong><span class="map-subline">Sumber: GeoServer · WMS</span></div>
+          <div class="map-controls" aria-label="Kontrol peta">
+            <button id="zoomIn" class="map-control" aria-label="Perbesar peta" title="Perbesar"><svg class="ico"><use href="#i-plus"/></svg></button>
+            <button id="zoomOut" class="map-control" aria-label="Perkecil peta" title="Perkecil"><svg class="ico"><use href="#i-minus"/></svg></button>
+            <span class="ctrl-separator"></span>
+            <button id="zoomToData" class="map-control" aria-label="Perbesar ke cakupan data" title="Zoom ke data"><svg class="ico"><use href="#i-target"/></svg></button>
+          </div>
+          <div class="basemap-switch" role="group" aria-label="Pilih peta dasar"><button id="osmBase" class="base-option selected" type="button" aria-pressed="true">Peta</button><button id="satBase" class="base-option" type="button" aria-pressed="false">Satelit</button></div>
+          <div class="map-bottom-left"><div id="mapScale" class="map-scale"><span class="scale-bar"></span><span>—</span></div><span id="mapCoordinates">110.22° BT, 7.50° LS</span></div>
+          <div class="map-attribution">© OpenStreetMap contributors <span id="satAttribution" hidden> · Esri, Maxar, Earthstar Geographics</span> · WMS GeoServer</div>
+          <div id="mapNotice" class="map-notice" hidden></div>
+        </div>
+        <div class="mobile-map-footer"><button id="mobileLayerButton" type="button"><svg class="ico"><use href="#i-layers"/></svg> Layer peta <span id="mobileActiveCount">1</span></button><button id="mobileDetailButton" type="button"><svg class="ico"><use href="#i-info"/></svg> Informasi</button></div>
+      </main>
+      <aside id="detailPanel" class="detail-panel" aria-label="Informasi peta">
+        <div class="detail-header"><div><span class="section-kicker">EKSPLORASI DATA</span><h2>Informasi Peta</h2></div><button id="closeDetail" class="icon-btn mobile-only" aria-label="Tutup informasi"><svg class="ico"><use href="#i-x"/></svg></button></div>
+        <div class="detail-content" id="detailContent"><div class="empty-detail"><div class="empty-detail-illustration"><svg class="ico"><use href="#i-pin"/></svg></div><h3>Klik area pada peta</h3><p>Informasi jenis tanah dan atribut lokasi akan ditampilkan di sini.</p></div></div>
+        <section class="data-actions" aria-label="Akses dan unduh data">
+          <div class="sidebar-split-header"><span>AKSES DATA</span></div>
+          <button id="copyWms" class="action-item" type="button"><span class="action-symbol"><svg class="ico"><use href="#i-link"/></svg></span><span><strong>Salin URL WMS</strong><small>Gunakan di QGIS atau ArcGIS</small></span><svg class="ico trailing"><use href="#i-arrow"/></svg></button>
+          <button id="downloadPng" class="action-item" type="button"><span class="action-symbol"><svg class="ico"><use href="#i-download"/></svg></span><span><strong>Unduh peta PNG</strong><small>Gambar dari layer WMS aktif</small></span><svg class="ico trailing"><use href="#i-download"/></svg></button>
+          <details class="extra-actions"><summary>Opsi unduhan lain <svg class="ico"><use href="#i-chevron"/></svg></summary>
+            <button id="downloadGeojson" class="action-item" type="button"><span class="action-symbol"><svg class="ico"><use href="#i-download"/></svg></span><span><strong>Unduh GeoJSON</strong><small>Melalui WFS · hingga 5.000 fitur</small></span></button>
+            <button id="openCapabilities" class="action-item" type="button"><span class="action-symbol"><svg class="ico"><use href="#i-external"/></svg></span><span><strong>Metadata WMS</strong><small>Informasi layanan GeoServer</small></span></button>
+          </details>
+        </section>
+      </aside>
+    </div>
+    <div id="mobileBackdrop" class="mobile-backdrop" hidden></div>
+  </div>
+
+  <div id="settingsModal" class="modal-backdrop" hidden>
+    <section class="settings-modal" role="dialog" aria-modal="true" aria-labelledby="settingsTitle"><div class="modal-heading"><div><span class="section-kicker">KONFIGURASI</span><h2 id="settingsTitle">Layanan GeoServer</h2></div><button id="closeSettings" class="icon-btn" aria-label="Tutup pengaturan"><svg class="ico"><use href="#i-x"/></svg></button></div><p class="modal-explain">Alamat WMS tersimpan di browser ini. Untuk menjalankan lokal, gunakan proxy bawaan agar metadata dan popup dapat diakses tanpa kendala CORS.</p><label class="field-label" for="wmsUrlInput">URL layanan WMS</label><input id="wmsUrlInput" class="form-input" type="url" spellcheck="false" placeholder="/geoserver/webgis/wms"/><label class="field-label" for="workspaceInput">Workspace</label><input id="workspaceInput" class="form-input" type="text" placeholder="webgis"/><div class="field-note">Default lokal: <code>/geoserver/webgis/wms</code>. Untuk hosting publik, gunakan alamat HTTPS GeoServer yang dapat diakses pengguna dan izinkan CORS.</div><div class="modal-actions"><button id="resetSettings" class="secondary-btn" type="button">Kembalikan default</button><button id="saveSettings" class="primary-btn" type="button">Simpan & muat ulang <svg class="ico"><use href="#i-refresh"/></svg></button></div></section>
+  </div>
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+</body>
+</html>
