@@ -11,16 +11,18 @@ window.GEOPORTAL_CONFIG = {
   defaultLayer: 'jenis_tanah_magelang',
   allowedLayers: ['jenis_tanah_magelang'],
   directWmsMode: true,
+  soilGeojsonUrl: 'assets/data/jenis_tanah_magelang.geojson',
+  soilCategoryField: 'TANAH',
   staticLayers: [{
     name: 'jenis_tanah_magelang',
     title: 'Peta Jenis Tanah Kabupaten Magelang',
-    description: 'Layer publik dari LizPack GeoServer Cloud. Style saat ini: polygon (abu-abu standar).',
+    description: 'Layer WMS LizPack dengan warna klasifikasi & popup lokal berdasarkan GeoJSON sumber.',
     bounds: [110.04305893200298, -7.706740638786212, 110.44549842714399, -7.322460340523301]
   }],
-  configVersion: 'lizpack-wms-direct-2026-10-v3',
+  configVersion: 'lizpack-wms-geojson-2026-10-v4',
   initialCenter: [110.22, -7.50],
   initialZoom: 10,
   minZoom: 4,
   maxZoom: 18,
-  enableWfsExport: false
+  enableWfsExport: false // Unduh GeoJSON tersedia dari file lokal, bukan WFS LizPack.
 };
