@@ -11,7 +11,17 @@
   const TILE = 256;
   const OSM = 'https://tile.openstreetmap.org/{z}/{x}/{y}.png';
   const SAT = 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}';
-  const stored = (() => {try { return JSON.parse(localStorage.getItem('geoportal.magelang.settings') || '{}'); } catch {return {};}})();
+  const stored = (() => {
+    try {
+      const saved = JSON.parse(localStorage.getItem('geoportal.magelang.settings') || '{}');
+      // Abaikan setting cloudflared/webgis lama saat migrasi ke LizPack.
+      if (saved.configVersion !== cfg.configVersion) {
+        localStorage.removeItem('geoportal.magelang.settings');
+        return {};
+      }
+      return saved;
+    } catch { return {}; }
+  })();
   const state = {
     wmsUrl: stored.wmsUrl || cfg.wmsUrl || '/geoserver/webgis/wms',
     workspace: stored.workspace || cfg.workspace || 'webgis',
@@ -115,26 +125,26 @@
     return null;
   }
   function parseLayers(xmlString){const xml=new DOMParser().parseFromString(xmlString,'text/xml');if(xml.querySelector('parsererror')||xml.querySelector('ServiceException'))throw new Error('GeoServer mengembalikan respons XML error');
-    // Daftar publikasi yang disetujui. Tidak menganggap semua layer global GeoServer
-    // otomatis menjadi anggota workspace 'webgis' (contoh: Spearfish, Tasmania, TIGER).
-    const allowList = Array.isArray(cfg.allowedLayers) && cfg.allowedLayers.length
-      ? cfg.allowedLayers : [cfg.defaultLayer || 'webgis:jenis_tanah_magelang'];
+    // GetCapabilities WMS virtual workspace milik pengguna, bukan global GeoServer.
+    // Jika allowedLayers kosong, tampilkan semua layer dalam workspace ini saja.
+    // Jika diisi, hanya nama diizinkan yang akan ditampilkan.
+    const allowList = Array.isArray(cfg.allowedLayers) ? cfg.allowedLayers : [];
     const allowed = new Set(allowList.map(name => String(name).trim().toLowerCase()));
     const all=[...xml.getElementsByTagName('*')].filter(n=>n.localName==='Layer'),map=new Map();for(const l of all){const rawName=inner(l,'Name');if(!rawName)continue;const name=rawName.includes(':')?rawName:(state.workspace+':'+rawName);if(!name.startsWith(state.workspace+':'))continue;
-      if(!allowed.has(name.toLowerCase()))continue;
+      if(allowed.size && !allowed.has(name.toLowerCase()))continue;
       map.set(name,{name,title:inner(l,'Title')||name.split(':').pop().replace(/_/g,' '),description:inner(l,'Abstract')||'Layer spasial disediakan melalui layanan GeoServer.',bounds:parseBounds(l)});}
     return [...map.values()].sort((a,b)=>{if(a.name===cfg.defaultLayer)return -1;if(b.name===cfg.defaultLayer)return 1;return a.title.localeCompare(b.title,'id');});
   }
   async function loadLayers({fit=true}={}){const fetchSeq=++state.fetchSeq;status('Memeriksa GeoServer','pending');$('layerList').innerHTML='<div class="layer-loading">Menghubungkan katalog GeoServer...</div>';
     const previous=new Set(state.enabled);
-    try{const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),13000);let r;try{r=await fetch(getCapabilitiesUrl(),{cache:'no-store',signal:controller.signal});}finally{clearTimeout(timer)}if(!r.ok)throw new Error('HTTP '+r.status);const xml=await r.text();const layers=parseLayers(xml);if(fetchSeq!==state.fetchSeq)return;if(!layers.length)throw new Error('Layer yang terdaftar pada allowedLayers belum tersedia di GetCapabilities. Periksa publikasi GeoServer dan config.js.');
+    try{const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),13000);let r;try{r=await fetch(getCapabilitiesUrl(),{cache:'no-store',signal:controller.signal});}finally{clearTimeout(timer)}if(!r.ok)throw new Error('HTTP '+r.status);const xml=await r.text();const layers=parseLayers(xml);if(fetchSeq!==state.fetchSeq)return;if(!layers.length)throw new Error('Belum ditemukan layer di WMS workspace LizPack. Periksa publikasi dan nama workspace.');
       state.layers=layers;state.enabled=new Set([...previous].filter(x=>layers.some(l=>l.name===x)));
       if(!state.enabled.size){const preferred=layers.find(l=>l.name===cfg.defaultLayer)||layers[0];state.enabled.add(preferred.name);}
       state.dataBounds=layers.find(l=>l.name===cfg.defaultLayer)?.bounds||layers.find(l=>state.enabled.has(l.name))?.bounds||null;
       status('GeoServer terhubung','online');state.wmsOnline=true;renderLayers();refreshLegend();updateActiveCounter();
 
       if(fit){if(!fitBounds(state.dataBounds))renderMap();}else renderMap();
-    }catch(err){if(fetchSeq!==state.fetchSeq)return;console.warn('GetCapabilities:',err);state.layers=state.workspace==='webgis'?[fallbackLayer]:[];state.enabled=new Set(state.layers.filter(l=>previous.has(l.name)||l.name===cfg.defaultLayer).map(l=>l.name));state.dataBounds=null;state.wmsOnline=false;status('Metadata tidak tersedia','offline');renderLayers();refreshLegend();updateActiveCounter();renderMap();notice('Metadata WMS gagal. Uji /geoserver/webgis/wms?SERVICE=WMS&REQUEST=GetCapabilities di alamat website ini.',8500);}
+    }catch(err){if(fetchSeq!==state.fetchSeq)return;console.warn('GetCapabilities:',err);state.layers=state.workspace==='webgis'?[fallbackLayer]:[];state.enabled=new Set(state.layers.filter(l=>previous.has(l.name)||l.name===cfg.defaultLayer).map(l=>l.name));state.dataBounds=null;state.wmsOnline=false;status('Metadata tidak tersedia','offline');renderLayers();refreshLegend();updateActiveCounter();renderMap();notice('Metadata WMS gagal. Uji endpoint GetCapabilities pada workspace LizPack di alamat website ini.',8500);}
   }
   function renderLayers(){const list=$('layerList'),filter=$('layerSearch').value.trim().toLowerCase();clear(list);const matching=state.layers.filter(l=>(l.title+' '+l.name).toLowerCase().includes(filter));$('layerCount').textContent=state.layers.length+' layer';document.querySelector('.sidebar-search').hidden=state.layers.length<5;
     if(!matching.length){list.appendChild(node('div','layer-empty',state.layers.length?'Tidak ada layer yang cocok.':'Belum ada layer. Periksa koneksi dan workspace.'));return;}
@@ -222,7 +232,7 @@
   }
   function showSettings(){$('wmsUrlInput').value=state.wmsUrl;$('workspaceInput').value=state.workspace;$('settingsModal').hidden=false;$('wmsUrlInput').focus();}
   function hideSettings(){$('settingsModal').hidden=true;}
-  function saveSettings(){const url=$('wmsUrlInput').value.trim(),workspace=$('workspaceInput').value.trim();if(!safeURL(url)||!/^[\w.-]+$/.test(workspace)){toast('Periksa URL WMS dan nama workspace.');return;}state.wmsUrl=url;state.workspace=workspace;localStorage.setItem('geoportal.magelang.settings',JSON.stringify({wmsUrl:url,workspace}));state.enabled.clear();state.wmsOnline=false;hideSettings();loadLayers({fit:true});toast('Konfigurasi GeoServer diperbarui.');}
+  function saveSettings(){const url=$('wmsUrlInput').value.trim(),workspace=$('workspaceInput').value.trim();if(!safeURL(url)||!/^[\w.-]+$/.test(workspace)){toast('Periksa URL WMS dan nama workspace.');return;}state.wmsUrl=url;state.workspace=workspace;localStorage.setItem('geoportal.magelang.settings',JSON.stringify({wmsUrl:url,workspace,configVersion:cfg.configVersion}));state.enabled.clear();state.wmsOnline=false;hideSettings();loadLayers({fit:true});toast('Konfigurasi GeoServer diperbarui.');}
   function resetSettings(){localStorage.removeItem('geoportal.magelang.settings');state.wmsUrl=cfg.wmsUrl||'/geoserver/webgis/wms';state.workspace=cfg.workspace||'webgis';state.enabled.clear();hideSettings();loadLayers({fit:true});toast('Konfigurasi default dipulihkan.');}
 
   function bindMapInteractions(){const pointers=new Map();let down=null,moved=false,pinch=0;
