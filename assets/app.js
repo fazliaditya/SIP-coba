@@ -85,7 +85,7 @@
         const src=reqUrl(getWmsMapParams(act,w,h,true));
         const overlay=makeTile(src,0,0,wmsTiles,seq,'wms');
         overlay.style.width=Math.round(w)+'px';overlay.style.height=Math.round(h)+'px';
-        overlay.addEventListener('error',()=>{if(seq===state.renderSeq){status('Layer WMS gagal dimuat','offline');notice('Peta WMS tidak berhasil dimuat. Periksa GeoServer dan style layer.',7000);}}, {once:true});
+        overlay.addEventListener('error',()=>{if(seq===state.renderSeq){status('Layer WMS gagal dimuat','offline');notice('Peta WMS gagal: periksa jalur /geoserver/ di Vercel dan URL GeoServer publik. Jika GetCapabilities berhasil, periksa GetMap & style.',8000);}}, {once:true});
         wmsFrag.appendChild(overlay);
       }catch(e){console.warn(e);}
     }
@@ -115,7 +115,7 @@
     return null;
   }
   function parseLayers(xmlString){const xml=new DOMParser().parseFromString(xmlString,'text/xml');if(xml.querySelector('parsererror')||xml.querySelector('ServiceException'))throw new Error('GeoServer mengembalikan respons XML error');
-    const all=[...xml.getElementsByTagName('*')].filter(n=>n.localName==='Layer'),map=new Map();for(const l of all){const name=inner(l,'Name');if(!name||!name.startsWith(state.workspace+':'))continue;map.set(name,{name,title:inner(l,'Title')||name.split(':').pop().replace(/_/g,' '),description:inner(l,'Abstract')||'Layer spasial disediakan melalui layanan GeoServer.',bounds:parseBounds(l)});}
+    const all=[...xml.getElementsByTagName('*')].filter(n=>n.localName==='Layer'),map=new Map();for(const l of all){const rawName=inner(l,'Name');if(!rawName)continue;const name=rawName.includes(':')?rawName:(state.workspace+':'+rawName);if(!name.startsWith(state.workspace+':'))continue;map.set(name,{name,title:inner(l,'Title')||name.split(':').pop().replace(/_/g,' '),description:inner(l,'Abstract')||'Layer spasial disediakan melalui layanan GeoServer.',bounds:parseBounds(l)});}
     return [...map.values()].sort((a,b)=>{if(a.name===cfg.defaultLayer)return -1;if(b.name===cfg.defaultLayer)return 1;return a.title.localeCompare(b.title,'id');});
   }
   async function loadLayers({fit=true}={}){const fetchSeq=++state.fetchSeq;status('Memeriksa GeoServer','pending');$('layerList').innerHTML='<div class="layer-loading">Menghubungkan katalog GeoServer...</div>';
@@ -127,7 +127,7 @@
       status('GeoServer terhubung','online');state.wmsOnline=true;renderLayers();refreshLegend();updateActiveCounter();
 
       if(fit){if(!fitBounds(state.dataBounds))renderMap();}else renderMap();
-    }catch(err){if(fetchSeq!==state.fetchSeq)return;console.warn('GetCapabilities:',err);state.layers=state.workspace==='webgis'?[fallbackLayer]:[];state.enabled=new Set(state.layers.filter(l=>previous.has(l.name)||l.name===cfg.defaultLayer).map(l=>l.name));state.dataBounds=null;state.wmsOnline=false;status('Metadata tidak tersedia','offline');renderLayers();refreshLegend();updateActiveCounter();renderMap();notice('Metadata WMS belum terbaca. Periksa /geoserver/webgis/wms?SERVICE=WMS&REQUEST=GetCapabilities lewat localhost:5500.',8500);}
+    }catch(err){if(fetchSeq!==state.fetchSeq)return;console.warn('GetCapabilities:',err);state.layers=state.workspace==='webgis'?[fallbackLayer]:[];state.enabled=new Set(state.layers.filter(l=>previous.has(l.name)||l.name===cfg.defaultLayer).map(l=>l.name));state.dataBounds=null;state.wmsOnline=false;status('Metadata tidak tersedia','offline');renderLayers();refreshLegend();updateActiveCounter();renderMap();notice('Metadata WMS gagal. Uji /geoserver/webgis/wms?SERVICE=WMS&REQUEST=GetCapabilities di alamat website ini.',8500);}
   }
   function renderLayers(){const list=$('layerList'),filter=$('layerSearch').value.trim().toLowerCase();clear(list);const matching=state.layers.filter(l=>(l.title+' '+l.name).toLowerCase().includes(filter));$('layerCount').textContent=state.layers.length+' layer';document.querySelector('.sidebar-search').hidden=state.layers.length<5;
     if(!matching.length){list.appendChild(node('div','layer-empty',state.layers.length?'Tidak ada layer yang cocok.':'Belum ada layer. Periksa koneksi dan workspace.'));return;}
