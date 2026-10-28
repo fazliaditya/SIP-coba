@@ -41,6 +41,118 @@
   const viewport = $('mapViewport');
   const baseTiles = $('basemapTiles');
   const wmsTiles = $('wmsTiles');
+  const soilLayerName = cfg.defaultLayer || 'jenis_tanah_magelang';
+  const soilColors = Object.freeze({
+    aluvial: '#E6B76D',
+    latosol: '#C87559',
+    litosol: '#7D93B6',
+    regosol: '#7CB08E'
+  });
+  const soilState = { features: null, hitPaths: [], error: '', canvas: null, ctx: null };
+  // Canvas berisi warna berdasarkan atribut lokal di atas peta WMS GeoServer.
+  // WMS tetap diminta langsung dari LizPack, tanpa proxy Vercel/CORS.
+  if(cfg.soilGeojsonUrl && viewport){
+    const canvas=document.createElement('canvas');
+    canvas.id='soilClassOverlay';canvas.setAttribute('aria-hidden','true');
+    Object.assign(canvas.style,{position:'absolute',inset:'0',zIndex:'3',width:'100%',height:'100%',pointerEvents:'none'});
+    viewport.insertBefore(canvas,$('mapPin'));
+    soilState.canvas=canvas;soilState.ctx=canvas.getContext('2d');
+  }
+  function soilEnabled(){return !!(soilState.features && state.enabled.has(soilLayerName));}
+  function soilLabel(value){const s=String(value||'').trim();return s?s[0].toUpperCase()+s.slice(1):'Tidak teridentifikasi';}
+  function soilColor(value){return soilColors[String(value||'').trim().toLowerCase()]||'#A5AAB1';}
+  async function loadLocalSoil(){
+    if(!cfg.soilGeojsonUrl)return;
+    try{
+      const r=await fetch(cfg.soilGeojsonUrl,{cache:'no-cache'});
+      if(!r.ok)throw new Error('HTTP '+r.status);
+      const json=await r.json();
+      if(json.type!=='FeatureCollection'||!Array.isArray(json.features)||!json.features.length)throw new Error('GeoJSON tidak berisi fitur.');
+      if(!json.features.every(f=>f.geometry?.type==='MultiPolygon'||f.geometry?.type==='Polygon'))throw new Error('Geometri tidak didukung.');
+      // GeoJSON ini sudah direproyeksi dari EPSG:32749 ke EPSG:4326 pada saat packaging.
+      soilState.features=json.features;
+      soilState.error='';
+      const source=$('sourceStripLabel')||document.querySelector('.source-strip span');
+      if(source)source.textContent='Warna & popup dari GeoJSON; WMS dari LizPack';
+      const sub=document.querySelector('.map-subline');
+      if(sub)sub.textContent='Sumber: GeoServer LizPack WMS · GeoJSON klasifikasi lokal';
+      renderMap();refreshLegend();updateActiveCounter();
+    }catch(err){soilState.error=err.message||'gagal membaca GeoJSON';console.warn('GeoJSON jenis tanah:',err);
+      notice('WMS tetap aktif, tetapi warna dan popup lokal belum dimuat: '+soilState.error,9000);
+    }
+  }
+  function drawSoilOverlay(){
+    const canvas=soilState.canvas,ctx=soilState.ctx;
+    if(!canvas||!ctx)return;
+    const [w,h]=getMapSize();if(!w||!h)return;
+    const ratio=Math.min(window.devicePixelRatio||1,2);
+    canvas.width=Math.round(w*ratio);canvas.height=Math.round(h*ratio);
+    canvas.style.width=w+'px';canvas.style.height=h+'px';
+    ctx.setTransform(ratio,0,0,ratio,0,0);
+    ctx.clearRect(0,0,w,h);soilState.hitPaths=[];
+    if(!soilEnabled())return;
+    // Canvas overlay dicocokkan dengan proyeksi layar basemap dan citra WMS (EPSG:3857).
+    for(const feature of soilState.features){
+      const geometry=feature.geometry;const polys=geometry.type==='Polygon'?[geometry.coordinates]:geometry.coordinates;
+      const path=new Path2D();let hasPoints=false;
+      for(const poly of polys){for(const ring of poly){
+        for(let i=0;i<ring.length;i++){
+          const p=ring[i];if(!Array.isArray(p)||p.length<2)continue;
+          const [x,y]=coordToScreen(p[0],p[1]);
+          if(i===0)path.moveTo(x,y);else path.lineTo(x,y);
+          hasPoints=true;
+        }
+        path.closePath();
+      }}
+      if(!hasPoints)continue;
+      ctx.fillStyle=soilColor(feature.properties?.[cfg.soilCategoryField||'TANAH']);
+      ctx.globalAlpha=0.94;
+      ctx.fill(path,'evenodd');
+      ctx.globalAlpha=0.80;
+      ctx.strokeStyle='#F8FAF8';ctx.lineWidth=1.05;
+      ctx.stroke(path);
+      ctx.globalAlpha=1;
+      soilState.hitPaths.push({path,feature});
+    }
+  }
+  function localSoilAt(px,py){
+    if(!soilEnabled()||!soilState.ctx)return null;
+    const ctx=soilState.ctx;
+    for(let i=soilState.hitPaths.length-1;i>=0;i--){
+      const item=soilState.hitPaths[i];
+      if(ctx.isPointInPath(item.path,px,py,'evenodd'))return item.feature;
+    }
+    return null;
+  }
+  function localSoilPopup(px,py){
+    const feature=localSoilAt(px,py),point=screenToCoord(px,py);
+    state.currentCoordinate=feature?point:null;applyPosition();
+    const panel=$('detailContent');clear(panel);openDrawer('detail');
+    if(!feature){
+      panel.appendChild(node('p','subtle-note','Tidak ada poligon jenis tanah pada titik ini. Klik area berwarna untuk melihat atribut.'));
+      return;
+    }
+    const p=feature.properties||{};
+    const h=node('div','detail-summary');
+    h.appendChild(node('strong','','Informasi jenis tanah'));
+    h.appendChild(node('span','','Atribut GeoJSON · '+point[0].toFixed(5)+'° BT, '+Math.abs(point[1]).toFixed(5)+'° LS'));
+    panel.appendChild(h);
+    const card=node('section','feature-card');
+    card.appendChild(node('span','feature-card-overline','JENIS TANAH TERPILIH'));
+    card.appendChild(node('strong','feature-primary',p.Keterangan||soilLabel(p.TANAH)));
+    card.appendChild(node('p','feature-secondary','Kategori: '+soilLabel(p.TANAH)));
+    panel.appendChild(card);
+    const table=node('table','attribute-table');
+    for(const [key,label] of [['TANAH','Kelas tanah'],['Keterangan','Keterangan tanah'],['SKORTAN','Skor tanah'],['Sumber','Sumber data']]){
+      const val=p[key];if(val===null||val===undefined||String(val).trim()==='')continue;
+      const row=document.createElement('tr');
+      row.append(node('td','',label),node('td','',String(val)));
+      table.appendChild(row);
+    }
+    panel.appendChild(table);
+    panel.appendChild(node('p','subtle-note','Warna dan atribut berdasarkan GeoJSON yang disertakan dalam website. Style WMS asli pada LizPack tidak diubah.'));
+  }
+
   const clamp = (n,a,b) => Math.min(b,Math.max(a,n));
   const toRadians = d => d * Math.PI / 180;
   const toDegrees = d => d * 180 / Math.PI;
@@ -99,7 +211,10 @@
         wmsFrag.appendChild(overlay);
       }catch(e){console.warn(e);}
     }
-    baseTiles.style.transform='';wmsTiles.style.transform='';baseTiles.replaceChildren(baseFrag);wmsTiles.replaceChildren(wmsFrag);
+    baseTiles.style.transform='';wmsTiles.style.transform='';
+    if(soilState.canvas)soilState.canvas.style.transform='';
+    baseTiles.replaceChildren(baseFrag);wmsTiles.replaceChildren(wmsFrag);
+    drawSoilOverlay();
     $('mapCoordinates').textContent=`${Math.abs(state.center[0]).toFixed(3)}° ${state.center[0]<0?'BB':'BT'}, ${Math.abs(state.center[1]).toFixed(3)}° ${state.center[1]<0?'LS':'LU'}`;
     updateScale();applyPosition();
   }
@@ -189,6 +304,20 @@
     if(!active.length){lst.appendChild(node('p','subtle-note','Aktifkan layer untuk melihat legenda.'));return;}
     for(const l of active){
       const box=node('div','legend-card');box.appendChild(node('h4','',l.title));
+      if(soilEnabled()&&l.name===soilLayerName){
+        const counts={};for(const f of soilState.features){const c=String(f.properties?.[cfg.soilCategoryField||'TANAH']||'').trim().toLowerCase();counts[c]=(counts[c]||0)+1;}
+        for(const key of ['aluvial','latosol','litosol','regosol',...Object.keys(counts).filter(x=>!['aluvial','latosol','litosol','regosol'].includes(x))]){
+          if(!counts[key])continue;
+          const item=node('div','soil-legend-item');item.style.cssText='display:flex;gap:9px;align-items:center;padding:5px 0;font-size:12px;color:#354c57';
+          const swatch=node('span','');swatch.style.cssText='width:16px;height:13px;flex:none;border:1px solid #68747755;border-radius:3px;background:'+soilColor(key);
+          item.append(swatch,node('span','',soilLabel(key)),node('span','',counts[key]+' fitur'));
+          item.lastChild.style.marginLeft='auto';item.lastChild.style.color='#88979d';
+          box.appendChild(item);
+        }
+        const info=node('p','subtle-note','Klasifikasi atribut TANAH · '+soilState.features.length+' fitur · Warna ditampilkan oleh WebGIS (bukan style SLD server).');
+        info.style.cssText='font-size:10px;margin:10px 0 0;line-height:1.5';box.appendChild(info);
+        lst.appendChild(box);continue;
+      }
       const img=document.createElement('img');img.alt='Legenda '+l.title;img.loading='eager';
       try{img.src=reqUrl({SERVICE:'WMS',VERSION:'1.1.1',REQUEST:'GetLegendGraphic',FORMAT:'image/png',WIDTH:22,HEIGHT:18,LAYER:l.name,LEGEND_OPTIONS:'fontSize:11;fontName:Arial;fontColor:0x354c57;fontAntiAliasing:true',_r:state.legendSeq});}catch{}
       img.onerror=()=>{img.remove();box.appendChild(node('div','legend-img-note','Legenda belum tersedia. Periksa Default Style di GeoServer.'));};
@@ -200,7 +329,8 @@
     const btn=node('button','secondary-btn','Zoom ke cakupan layer');btn.style.marginTop='18px';btn.addEventListener('click',()=>zoomToLayer(layer));target.appendChild(btn);
   }
   async function getFeatureInfoAt(px,py){
-    if(cfg.directWmsMode){toast('Popup atribut memerlukan izin CORS atau proxy dari penyedia LizPack. Mode ini mengutamakan tampilan WMS.');return;}
+    if(soilEnabled()){localSoilPopup(px,py);return;}
+    if(cfg.directWmsMode){toast(soilState.error?'Popup lokal belum siap: '+soilState.error:'Popup menunggu GeoJSON lokal, bukan CORS LizPack.');return;}
     const act=[...state.enabled];if(!act.length){toast('Aktifkan sedikitnya satu layer WMS terlebih dahulu.');return;}
     const coord=screenToCoord(px,py);state.currentCoordinate=coord;applyPosition();const panel=$('detailContent');clear(panel);panel.appendChild(node('p','subtle-note','Mengambil informasi atribut dari GeoServer...'));openDrawer('detail');
     const [width,height]=getMapSize(),bbox=viewBbox();let url;
@@ -255,6 +385,10 @@
   async function downloadPng(){
     const act=[...state.enabled];if(!act.length)return toast('Aktifkan satu layer terlebih dahulu.');
     if(cfg.directWmsMode){
+      if(soilEnabled()&&soilState.canvas){
+        const a=document.createElement('a');a.href=soilState.canvas.toDataURL('image/png');a.download='jenis_tanah_magelang_klasifikasi_transparan.png';document.body.appendChild(a);a.click();a.remove();
+        toast('PNG klasifikasi diunduh (tanpa basemap/WMS).');return;
+      }
       const [w,h]=getMapSize();
       const url=reqUrl(getWmsMapParams(act,Math.max(256,Math.round(w)),Math.max(256,Math.round(h)),false));
       window.open(url,'_blank','noopener,noreferrer');
@@ -267,7 +401,9 @@
     catch(e){console.warn(e);toast('Unduhan PNG gagal. Periksa GeoServer dan layer aktif.');}
     finally{updateActiveCounter();}
   }
-  async function downloadGeojson(){if(cfg.enableWfsExport===false)return toast('Unduhan WFS dinonaktifkan dalam konfigurasi.');const act=[...state.enabled];if(!act.length)return toast('Aktifkan setidaknya satu layer.');let url;try{url=getWfsUrl(act[0]);}catch{return toast('Alamat layanan tidak valid.');}
+  async function downloadGeojson(){
+    if(soilEnabled()&&cfg.soilGeojsonUrl){const a=document.createElement('a');a.href=cfg.soilGeojsonUrl;a.download='jenis_tanah_magelang.geojson';document.body.appendChild(a);a.click();a.remove();toast('Unduhan GeoJSON kategori jenis tanah dimulai.');return;}
+    if(cfg.enableWfsExport===false)return toast('Unduhan WFS dinonaktifkan dalam konfigurasi.');const act=[...state.enabled];if(!act.length)return toast('Aktifkan setidaknya satu layer.');let url;try{url=getWfsUrl(act[0]);}catch{return toast('Alamat layanan tidak valid.');}
     $('downloadGeojson').disabled=true;try{await downloadBlob(url,act[0].replace(/[^a-z0-9-_]/gi,'_')+'.geojson');toast('Unduhan GeoJSON berhasil. Maksimal 5.000 fitur.');}catch(e){console.warn(e);toast('Unduh WFS gagal. Periksa layanan WFS dan izin akses layer.');}finally{updateActiveCounter();}
   }
   function showSettings(){$('wmsUrlInput').value=state.wmsUrl;$('workspaceInput').value=state.workspace;$('settingsModal').hidden=false;$('wmsUrlInput').focus();}
@@ -277,7 +413,7 @@
 
   function bindMapInteractions(){const pointers=new Map();let down=null,moved=false,pinch=0;
     viewport.addEventListener('pointerdown',e=>{if(e.target.closest('button'))return;viewport.setPointerCapture?.(e.pointerId);pointers.set(e.pointerId,{x:e.clientX,y:e.clientY});if(pointers.size===1){down={x:e.clientX,y:e.clientY,originX:e.clientX,originY:e.clientY};moved=false;viewport.classList.add('dragging');}else if(pointers.size===2){const p=[...pointers.values()];pinch=Math.hypot(p[0].x-p[1].x,p[0].y-p[1].y);down=null;}e.preventDefault();});
-    viewport.addEventListener('pointermove',e=>{if(!pointers.has(e.pointerId))return;pointers.set(e.pointerId,{x:e.clientX,y:e.clientY});if(pointers.size===2){const p=[...pointers.values()],dist=Math.hypot(p[0].x-p[1].x,p[0].y-p[1].y);if(pinch>0&&(dist>pinch*1.38||dist<pinch/1.38)){zoomBy(dist>pinch?1:-1);pinch=dist;}return;}if(!down)return;const dx=e.clientX-down.originX,dy=e.clientY-down.originY;if(Math.hypot(dx,dy)>5)moved=true;baseTiles.style.transform=`translate(${dx}px,${dy}px)`;wmsTiles.style.transform=`translate(${dx}px,${dy}px)`;});
+    viewport.addEventListener('pointermove',e=>{if(!pointers.has(e.pointerId))return;pointers.set(e.pointerId,{x:e.clientX,y:e.clientY});if(pointers.size===2){const p=[...pointers.values()],dist=Math.hypot(p[0].x-p[1].x,p[0].y-p[1].y);if(pinch>0&&(dist>pinch*1.38||dist<pinch/1.38)){zoomBy(dist>pinch?1:-1);pinch=dist;}return;}if(!down)return;const dx=e.clientX-down.originX,dy=e.clientY-down.originY;if(Math.hypot(dx,dy)>5)moved=true;baseTiles.style.transform=`translate(${dx}px,${dy}px)`;wmsTiles.style.transform=`translate(${dx}px,${dy}px)`;if(soilState.canvas)soilState.canvas.style.transform=`translate(${dx}px,${dy}px)`;});
     function finish(e){if(!pointers.has(e.pointerId))return;const count=pointers.size;pointers.delete(e.pointerId);viewport.classList.remove('dragging');if(count===1&&down){const dx=e.clientX-down.originX,dy=e.clientY-down.originY;const shouldClick=!moved&&Math.hypot(dx,dy)<6;down=null;if(shouldClick){const box=viewport.getBoundingClientRect();getFeatureInfoAt(e.clientX-box.left,e.clientY-box.top);}else panPixels(dx,dy);}else if(pointers.size===1){const p=[...pointers.values()][0];down={x:p.x,y:p.y,originX:p.x,originY:p.y};moved=true;}else{down=null;renderMap();} }
     viewport.addEventListener('pointerup',finish);viewport.addEventListener('pointercancel',finish);
     viewport.addEventListener('wheel',e=>{if(e.target.closest('button'))return;e.preventDefault();zoomBy(e.deltaY<0?1:-1);},{passive:false});
@@ -290,9 +426,11 @@
     $('copyWms').addEventListener('click',copyWms);$('downloadPng').addEventListener('click',downloadPng);$('downloadGeojson').addEventListener('click',downloadGeojson);$('openCapabilities').addEventListener('click',()=>{try{window.open(getCapabilitiesUrl(),'_blank','noopener,noreferrer');}catch{toast('URL WMS tidak valid.');}});
     $('openSettings').addEventListener('click',showSettings);$('closeSettings').addEventListener('click',hideSettings);$('saveSettings').addEventListener('click',saveSettings);$('resetSettings').addEventListener('click',resetSettings);$('settingsModal').addEventListener('click',e=>{if(e.target===$('settingsModal'))hideSettings();});
     document.addEventListener('keydown',e=>{if(e.key==='Escape'){hideSettings();closeDrawers();}});
-    if(cfg.enableWfsExport===false)$('downloadGeojson').hidden=true;
+    if(cfg.enableWfsExport===false && !cfg.soilGeojsonUrl)$('downloadGeojson').hidden=true;
+    if(cfg.soilGeojsonUrl){const el=$('downloadGeojson');const words=el.querySelector('small');if(words)words.textContent='Data atribut lokal · EPSG:4326';}
     window.addEventListener('resize',()=>{closeDrawers();if(state.mapReady)renderMap();});
   }
   bindUI();bindMapInteractions();
+  loadLocalSoil();
   if(location.protocol==='file:')console.warn('Untuk metadata, popup, dan WFS, jalankan melalui: py -3 serve.py (http://localhost:5500).');
 })();
