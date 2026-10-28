@@ -1,0 +1,9 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "rewrites": [
+    {
+      "source": "/geoserver/:workspace/:kind",
+      "destination": "/api/ogc?workspace=:workspace&kind=:kind"
+    }
+  ]
+}
