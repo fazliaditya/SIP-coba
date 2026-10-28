@@ -14,7 +14,7 @@ window.GEOPORTAL_CONFIG = {
   wmsUrl: '/geoserver/ws_fazliaditya17/wms',
   defaultLayer: '', // Ambil layer pertama dari GetCapabilities.
   allowedLayers: [], // Otomatis layer dalam workspace pengguna saja.
-  configVersion: 'lizpack-2026-10-v1', // Reset sekali setting URL lama dari laptop.
+  configVersion: 'lizpack-2026-10-v2', // Reset sekali setting URL lama dari laptop.
   initialCenter: [110.22, -7.50],
   initialZoom: 10,
   minZoom: 4,
