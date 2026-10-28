@@ -115,12 +115,19 @@
     return null;
   }
   function parseLayers(xmlString){const xml=new DOMParser().parseFromString(xmlString,'text/xml');if(xml.querySelector('parsererror')||xml.querySelector('ServiceException'))throw new Error('GeoServer mengembalikan respons XML error');
-    const all=[...xml.getElementsByTagName('*')].filter(n=>n.localName==='Layer'),map=new Map();for(const l of all){const rawName=inner(l,'Name');if(!rawName)continue;const name=rawName.includes(':')?rawName:(state.workspace+':'+rawName);if(!name.startsWith(state.workspace+':'))continue;map.set(name,{name,title:inner(l,'Title')||name.split(':').pop().replace(/_/g,' '),description:inner(l,'Abstract')||'Layer spasial disediakan melalui layanan GeoServer.',bounds:parseBounds(l)});}
+    // Daftar publikasi yang disetujui. Tidak menganggap semua layer global GeoServer
+    // otomatis menjadi anggota workspace 'webgis' (contoh: Spearfish, Tasmania, TIGER).
+    const allowList = Array.isArray(cfg.allowedLayers) && cfg.allowedLayers.length
+      ? cfg.allowedLayers : [cfg.defaultLayer || 'webgis:jenis_tanah_magelang'];
+    const allowed = new Set(allowList.map(name => String(name).trim().toLowerCase()));
+    const all=[...xml.getElementsByTagName('*')].filter(n=>n.localName==='Layer'),map=new Map();for(const l of all){const rawName=inner(l,'Name');if(!rawName)continue;const name=rawName.includes(':')?rawName:(state.workspace+':'+rawName);if(!name.startsWith(state.workspace+':'))continue;
+      if(!allowed.has(name.toLowerCase()))continue;
+      map.set(name,{name,title:inner(l,'Title')||name.split(':').pop().replace(/_/g,' '),description:inner(l,'Abstract')||'Layer spasial disediakan melalui layanan GeoServer.',bounds:parseBounds(l)});}
     return [...map.values()].sort((a,b)=>{if(a.name===cfg.defaultLayer)return -1;if(b.name===cfg.defaultLayer)return 1;return a.title.localeCompare(b.title,'id');});
   }
   async function loadLayers({fit=true}={}){const fetchSeq=++state.fetchSeq;status('Memeriksa GeoServer','pending');$('layerList').innerHTML='<div class="layer-loading">Menghubungkan katalog GeoServer...</div>';
     const previous=new Set(state.enabled);
-    try{const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),13000);let r;try{r=await fetch(getCapabilitiesUrl(),{cache:'no-store',signal:controller.signal});}finally{clearTimeout(timer)}if(!r.ok)throw new Error('HTTP '+r.status);const xml=await r.text();const layers=parseLayers(xml);if(fetchSeq!==state.fetchSeq)return;if(!layers.length)throw new Error('Tidak menemukan nama layer berawalan '+state.workspace+': pada GetCapabilities. Cek workspace dan nama layer yang dipublikasikan.');
+    try{const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),13000);let r;try{r=await fetch(getCapabilitiesUrl(),{cache:'no-store',signal:controller.signal});}finally{clearTimeout(timer)}if(!r.ok)throw new Error('HTTP '+r.status);const xml=await r.text();const layers=parseLayers(xml);if(fetchSeq!==state.fetchSeq)return;if(!layers.length)throw new Error('Layer yang terdaftar pada allowedLayers belum tersedia di GetCapabilities. Periksa publikasi GeoServer dan config.js.');
       state.layers=layers;state.enabled=new Set([...previous].filter(x=>layers.some(l=>l.name===x)));
       if(!state.enabled.size){const preferred=layers.find(l=>l.name===cfg.defaultLayer)||layers[0];state.enabled.add(preferred.name);}
       state.dataBounds=layers.find(l=>l.name===cfg.defaultLayer)?.bounds||layers.find(l=>state.enabled.has(l.name))?.bounds||null;
