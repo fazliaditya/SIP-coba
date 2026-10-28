@@ -1,18 +1,20 @@
 /*
- * Konfigurasi utama GeoPortal Magelang.
- * Mode lokal: jalankan `py -3 serve.py` untuk mengakses GeoServer lewat proxy
- * pada /geoserver/ dan terhindar dari kendala CORS pada port berbeda.
+ * GeoPortal Magelang — LizPack GeoServer Cloud (tanpa laptop lokal).
+ * Proxy Vercel tetap menggunakan /geoserver/:workspace/wms.
+ * Vercel -> GEOSERVER_PUBLIC_BASE=https://gs.lizpack.com
+ * Workspace cloud: ws_fazliaditya17
  *
- * Mode hosting statis: ubah wmsUrl ke URL HTTPS GeoServer publik, dan atur CORS
- * pada GeoServer/reverse proxy. URL localhost TIDAK berfungsi untuk pengunjung.
+ * allowedLayers kosong = hanya tampilkan layer yang dikembalikan oleh
+ * virtual workspace WMS LizPack (bukan seluruh katalog GeoServer global).
+ * Nama layer diambil otomatis dari GetCapabilities, tidak perlu menebak.
  */
 window.GEOPORTAL_CONFIG = {
   title: 'GeoPortal Magelang',
-  workspace: 'webgis',
-  wmsUrl: '/geoserver/webgis/wms',
-  defaultLayer: 'webgis:jenis_tanah_magelang',
-  // Hanya layer penelitian yang ditampilkan (bukan data contoh bawaan GeoServer).
-  allowedLayers: ['webgis:jenis_tanah_magelang'],
+  workspace: 'ws_fazliaditya17',
+  wmsUrl: '/geoserver/ws_fazliaditya17/wms',
+  defaultLayer: '', // Ambil layer pertama dari GetCapabilities.
+  allowedLayers: [], // Otomatis layer dalam workspace pengguna saja.
+  configVersion: 'lizpack-2026-10-v1', // Reset sekali setting URL lama dari laptop.
   initialCenter: [110.22, -7.50],
   initialZoom: 10,
   minZoom: 4,
